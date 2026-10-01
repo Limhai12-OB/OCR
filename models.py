@@ -25,7 +25,15 @@ class Receipt:
     currency: FieldValue
     category: FieldValue
     description: FieldValue
+    items: list[dict[str, Any]]
+    ocr_confidence: float = 0.0
+    extraction_confidence: float = 0.0
+    llm_raw_json: str | None = None
+    llm_error: str | None = None
+    llm_seconds: float = 0.0
+    field_sources: dict[str, str] | None = None
 
     def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
-
+        return {**asdict(self),
+                "extraction_confidence": self.extraction_confidence,
+                "ocr_confidence": self.ocr_confidence}

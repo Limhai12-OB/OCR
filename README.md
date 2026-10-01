@@ -1,8 +1,8 @@
-# OCR Image to Text and Receipt Extraction Prototype
+# Receipt OCR and Extraction Prototype
 
 A local Streamlit application that uses EasyOCR to recognize text in an uploaded image. The recognized text appears in an editable text area and can be downloaded as a UTF-8 `.txt` file. Choose plain text or structured text, which uses OCR box coordinates to retain reading order, line grouping, and horizontal column gaps.
 
-This repository also includes a small command-line receipt extraction prototype. It runs EasyOCR, prints the raw text, asks a local Ollama model to return receipt JSON, applies USD/KHR currency rules, validates fields, and marks low-confidence fields for review. It is a prototype, not the LedgerVision application.
+This prototype keeps OCR separate from receipt understanding. EasyOCR returns text, boxes, and OCR confidence; deterministic receipt rules identify explicit totals, dates, and USD/KHR markers; Ollama interprets merchant/category/items; validation reports missing or unsupported financial data. Rule based output remains available when Ollama is offline.
 
 ## Features
 
@@ -66,7 +66,7 @@ Pass a receipt image to the CLI:
 python main.py receipt.jpg
 ```
 
-The command prints OCR raw text, structured AI output with per-field confidence and `needs_review`, validation errors, and the final object. You can select another installed Ollama model with `--model MODEL_NAME`.
+The command prints OCR detections and raw text, structured receipt output, validation results, and timings. It continues with deterministic extraction if Ollama is unavailable. Configure the local model and URL with `OLLAMA_MODEL` and `OLLAMA_URL` environment variables.
 
 Three built-in OCR text examples are available to try the model and validation path without running image OCR:
 
@@ -74,9 +74,27 @@ Three built-in OCR text examples are available to try the model and validation p
 python main.py --demo usd
 python main.py --demo khr
 python main.py --demo low-confidence
+python main.py --demo subtotal
+python main.py --demo bad-ocr
 ```
 
-Currency is assigned from OCR evidence only: `$`, USD, and US Dollar indicate USD; `៛`, KHR, and Riel indicate KHR. Other currencies are unsupported, and no conversion is performed. Categories are restricted to Ingredients, Rent, Utilities, Salary, Marketing, Equipment, Software, Transportation, and Other. Ollama must be reachable at `http://localhost:11434`.
+Currency is assigned from OCR evidence only: `$`, USD, and Dollar indicate USD; `៛`, KHR, and Riel indicate KHR. Other currencies are unsupported, and no conversion is performed. Totals are taken from explicit payable/total lines; unlabeled numbers are not promoted to totals. Categories are restricted to Ingredients, Rent, Utilities, Salary, Marketing, Equipment, Software, Transportation, and Other. `OCR_ENGINE` currently accepts `easyocr`.
+
+## Test
+
+Run the text fixture tests with the project environment:
+
+```bash
+python -m unittest discover -s tests -v
+```
+
+These cover USD/KHR markers, total versus subtotal, date normalization, missing dates, invalid amounts, validation, and Ollama failure fallback. OCR image accuracy still needs a representative image benchmark because the repository does not include receipt image fixtures.
+
+To compare OCR on a folder of sample receipts without involving Ollama:
+
+```bash
+python benchmark.py ./sample_receipts
+```
 
 ## Example usage
 
@@ -87,7 +105,7 @@ Currency is assigned from OCR evidence only: `$`, USD, and US Dollar indicate US
 
 ## How the OCR flow works
 
-The uploader provides image bytes to the app. The app validates and previews the image, then passes it and the selected language code to `ocr/engine.py`. `ocr/preprocessing.py` resizes only when needed and prepares original, enhanced grayscale, and adaptive-threshold versions. EasyOCR runs on each version and returns each text region's coordinates and confidence. The engine compares the passes and selects one using confidence, text coverage, and the share of low-confidence regions. `ocr/layout.py` sorts regions into rows and uses measured horizontal gaps to preserve approximate columns. `ocr/postprocessing.py` normalizes whitespace without rewriting recognized digits or currency. Streamlit displays the selected text and provides a UTF-8 download.
+The uploader validates and previews the image, then `ocr/engine.py` runs cached EasyOCR over original, grayscale, contrast enhanced, adaptive threshold, Otsu, and sharpened variants. A modest skew correction runs before grayscale variants. Receipt-aware scoring gives total, date, amount, and currency evidence weight alongside OCR confidence and meaningful lines. Detections retain boxes and confidence; layout code reconstructs reading order and postprocessing normalizes whitespace. The UI shows raw detections, OCR text, candidate scores, structured fields, validation, and timing.
 
 Structured output is an approximation based on the positions EasyOCR detects. When one detection combines several table columns into a single box, the original column boundaries may not be recoverable from OCR coordinates alone. Always review important amounts and identifiers against the image.
 

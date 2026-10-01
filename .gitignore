@@ -4,3 +4,5 @@ __pycache__/
 venv/
 .streamlit/secrets.toml
 *.txt.tmp
+config.bat
+node_modules
