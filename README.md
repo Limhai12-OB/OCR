@@ -1,6 +1,8 @@
-# OCR Image to Text
+# OCR Image to Text and Receipt Extraction Prototype
 
 A local Streamlit application that uses EasyOCR to recognize text in an uploaded image. The recognized text appears in an editable text area and can be downloaded as a UTF-8 `.txt` file. Choose plain text or structured text, which uses OCR box coordinates to retain reading order, line grouping, and horizontal column gaps.
+
+This repository also includes a small command-line receipt extraction prototype. It runs EasyOCR, prints the raw text, asks a local Ollama model to return receipt JSON, applies USD/KHR currency rules, validates fields, and marks low-confidence fields for review. It is a prototype, not the LedgerVision application.
 
 ## Features
 
@@ -49,6 +51,32 @@ streamlit run app.py
 ```
 
 Streamlit prints a local address (usually `http://localhost:8501`) to open in your browser.
+
+## Run receipt extraction
+
+Install and start [Ollama](https://ollama.com), then download the default model:
+
+```bash
+ollama pull llama3.2:3b
+```
+
+Pass a receipt image to the CLI:
+
+```bash
+python main.py receipt.jpg
+```
+
+The command prints OCR raw text, structured AI output with per-field confidence and `needs_review`, validation errors, and the final object. You can select another installed Ollama model with `--model MODEL_NAME`.
+
+Three built-in OCR text examples are available to try the model and validation path without running image OCR:
+
+```bash
+python main.py --demo usd
+python main.py --demo khr
+python main.py --demo low-confidence
+```
+
+Currency is assigned from OCR evidence only: `$`, USD, and US Dollar indicate USD; `៛`, KHR, and Riel indicate KHR. Other currencies are unsupported, and no conversion is performed. Categories are restricted to Ingredients, Rent, Utilities, Salary, Marketing, Equipment, Software, Transportation, and Other. Ollama must be reachable at `http://localhost:11434`.
 
 ## Example usage
 
